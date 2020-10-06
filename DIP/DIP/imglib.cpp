@@ -132,14 +132,18 @@ cv::Mat DiscreteFourierTransform(cv::Mat pic64f1) {
 	const int M = pic64f1.rows;
 	const int N = pic64f1.cols;
 	const double normalization = 1 / std::sqrt((M*N));
-	cv::Mat BaseMatrix = cv::Mat(M,N,CV_64FC1);
+
+	pic64f1 *= normalization;
+	//Complex matrix
+	cv::Mat BaseMatrix = cv::Mat(M,N,CV_64FC2);
 
 	const double imagine = -1;
 	double x = 0;
 	double base = 0;
-	printf("Calculating Discrete Fourier Transform..\n");
+	printf("Calculating DFT..\n");
 	for (float m = 0; m < M; m++)
 	{
+		printf("DFT progress: %2.0f %%\n", (double)m / M * 100.0f);
 		for (float n = 0; n < N; n++)
 		{
 			x = (2*CV_PI)*((m/M)+(n/N));
@@ -147,6 +151,6 @@ cv::Mat DiscreteFourierTransform(cv::Mat pic64f1) {
 			BaseMatrix.at<double>(m, n) = base;
 		}
 	}
-	printf("Discrete Fourier Transform done!");
+	printf("DFT done!");
 	return BaseMatrix;
 }
