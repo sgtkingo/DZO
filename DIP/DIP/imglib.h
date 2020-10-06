@@ -8,6 +8,9 @@
 #define R 2
 #define A 3
 
+#define REAL 0
+#define COMPLEX 1
+
 cv::Mat CreateConvolutionMatrix(int size_r, int size_c, bool BoxOrGaussian = true);
 void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int devider);
 void DoConvolution(cv::Mat pi8uc1, cv::Mat convultionMatrix);
@@ -20,5 +23,9 @@ double AnisotropicFormula(double I, double cn, double ce, double cw, double cs, 
 void SetAnisotropic(cv::Mat pic64f1, double o, double lambda);
 void DoAnisoptropicIterations(cv::Mat pic64f1, int iteration_ratio, double o, double lambda);
 
-double CalcSpectrumAmplitude(double x, double Imagine);
+void switch_quadrants(cv::Mat & src);
+double CalcSpectrumAmplitude(double Real, double Imagine, bool Power = false);
+cv::Mat ConvertToSpectrumAmplitude(cv::Mat ComplexMatrix);
+cv::Mat GetPowerSpectrum(cv::Mat ComplexMatrix);
+cv::Mat GetPhasseImage(cv::Mat ComplexMatrix);
 cv::Mat DiscreteFourierTransform(cv::Mat pic64f1);

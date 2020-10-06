@@ -121,36 +121,136 @@ void DoAnisoptropicIterations(cv::Mat pic64f1, int iteration_ratio, double o, do
 	printf("Anisotropic complete..\n");
 }
 
-double CalcSpectrumAmplitude(double x, double Imagine) {
-	double sin_x = sin(x);
-	double cos_x = Imagine * cos(x);
-	return std::sqrt(((sin_x*sin_x)+(cos_x*cos_x)));
+double CalcSpectrumAmplitude(double Real, double Imagine, bool Power) {
+	double result = ((Real * Real) + (Imagine * Imagine));
+	if (!Power){
+		result = std::sqrt(result);
+	}
+	return result;
+}
+
+cv::Mat ConvertToSpectrumAmplitude(cv::Mat ComplexMatrix){
+	printf("Converting to Fourier Spectrum Amplitude..\n");
+	const size_t rows = ComplexMatrix.rows;
+	const size_t cols = ComplexMatrix.cols;
+	cv::Mat img = cv::Mat(rows,cols,CV_64FC1);
+	double realPart, complexPart;
+
+	for (size_t k = 0; k < rows; k++)
+	{
+		for (size_t l = 0; l < cols; l++)
+		{
+			realPart = ComplexMatrix.at<cv::Vec2d>(k, l)[REAL];
+			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[COMPLEX];
+			img.at<double>(k, l) = CalcSpectrumAmplitude(realPart, complexPart);
+		}
+	}
+	printf("Convertion success!\n");
+	return img;
+}
+
+cv::Mat GetPhasseImage(cv::Mat ComplexMatrix) {
+	printf("Getting Fourier Phasse image..\n");
+	const size_t rows = ComplexMatrix.rows;
+	const size_t cols = ComplexMatrix.cols;
+	cv::Mat img = cv::Mat(rows, cols, CV_64FC1);
+	double realPart, complexPart;
+
+	for (size_t k = 0; k < rows; k++)
+	{
+		for (size_t l = 0; l < cols; l++)
+		{
+			realPart = ComplexMatrix.at<cv::Vec2d>(k, l)[REAL];
+			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[COMPLEX];
+			img.at<double>(k, l) = std::atan(realPart / complexPart);
+		}
+	}
+	printf("Convertion success!\n");
+	return img;
+}
+
+cv::Mat GetPowerSpectrum(cv::Mat ComplexMatrix) {
+	printf("Getting Fourier Power Spectrum..\n");
+	const size_t rows = ComplexMatrix.rows;
+	const size_t cols = ComplexMatrix.cols;
+	cv::Mat img = cv::Mat(rows, cols, CV_64FC1);
+	double realPart, complexPart;
+
+	for (size_t k = 0; k < rows; k++)
+	{
+		for (size_t l = 0; l < cols; l++)
+		{
+			realPart = ComplexMatrix.at<cv::Vec2d>(k, l)[REAL];
+			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[COMPLEX];
+			img.at<double>(k, l) = std::log(CalcSpectrumAmplitude(realPart, complexPart, true));
+		}
+	}
+	//Normalize result and switch Q
+	cv::normalize(img, img, 0.0, 1.0, cv::NORM_MINMAX);
+	switch_quadrants(img);
+	printf("Convertion success!\n");
+	return img;
 }
 
 cv::Mat DiscreteFourierTransform(cv::Mat pic64f1) {
 	printf("Setting Discrete Fourier Transform..\n");
 	const int M = pic64f1.rows;
 	const int N = pic64f1.cols;
-	const double normalization = 1 / std::sqrt((M*N));
-
+	const double normalization = 1 / std::sqrt(M*N);
+	//Normalize input img
 	pic64f1 *= normalization;
 	//Complex matrix
 	cv::Mat BaseMatrix = cv::Mat(M,N,CV_64FC2);
 
-	const double imagine = -1;
-	double x = 0;
-	double base = 0;
+	double imgVal, realPart, complexPart, x;
+	double realSum = 0;
+	double complexSum = 0;
+	cv::Vec2d base;
+
 	printf("Calculating DFT..\n");
-	for (float m = 0; m < M; m++)
+	for (size_t k = 0; k < M; k++)
 	{
-		printf("DFT progress: %2.0f %%\n", (double)m / M * 100.0f);
-		for (float n = 0; n < N; n++)
+		printf("DFT progress: %2.0f %%\n", (double)k / M * 100.0);
+		for (size_t l = 0; l < N; l++)
 		{
-			x = (2*CV_PI)*((m/M)+(n/N));
-			base = CalcSpectrumAmplitude(x, imagine);
-			BaseMatrix.at<double>(m, n) = base;
+			for (size_t m = 0; m < M; m++)
+			{
+				for (size_t n = 0; n < N; n++)
+				{
+					imgVal = pic64f1.at<double>(m, n);
+					x = (2 * CV_PI)*(((double)(k*m) / M) + ((double)(l*n) / N));
+					realPart = (imgVal * std::cos(x));
+					complexPart = (-imgVal * std::sin(x));
+
+					realSum += realPart;
+					complexSum += complexPart;
+				}
+			}
+			base = cv::Vec2d(realSum, complexSum);
+			BaseMatrix.at<cv::Vec2d>(k, l) = base;
 		}
 	}
-	printf("DFT done!");
+	printf("DFT done!\n");
+	//switch_quadrants(BaseMatrix);
 	return BaseMatrix;
+}
+//Switch Q 1<->3 and Q 2<->4
+void switch_quadrants(cv::Mat & src)
+{
+	uint widthHalf = src.cols / 2;
+	uint heightHalf = src.rows / 2;
+
+	cv::Mat q0(src, cv::Rect(0, 0, widthHalf, heightHalf));						// Top-Left - Create a ROI per quadrant
+	cv::Mat q1(src, cv::Rect(widthHalf, 0, widthHalf, heightHalf));				// Top-Right
+	cv::Mat q2(src, cv::Rect(0, heightHalf, widthHalf, heightHalf));			// Bottom-Left
+	cv::Mat q3(src, cv::Rect(widthHalf, heightHalf, widthHalf, heightHalf));	// Bottom-Right
+
+	cv::Mat tmp;
+	q0.copyTo(tmp);
+	q3.copyTo(q0);
+	tmp.copyTo(q3);
+
+	q1.copyTo(tmp);
+	q2.copyTo(q1);
+	tmp.copyTo(q2);
 }
