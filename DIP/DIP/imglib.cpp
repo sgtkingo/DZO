@@ -1,5 +1,23 @@
 #include "stdafx.h"
 
+
+cv::Mat CreateConvolutionMatrix(int size_r, int size_c, bool BoxOrGaussian) {
+	printf("Generating matrix..\n");
+	cv::Mat convultionMatrix3X3(3, 3, CV_8UC1);
+	uchar val = 0;
+	for (int y = 0; y < convultionMatrix3X3.rows; y++) {
+		for (int x = 0; x < convultionMatrix3X3.cols; x++) {
+			//Use box or gaussian blur
+			if (BoxOrGaussian) val = 1;
+			else val = (x + y + 1);
+			convultionMatrix3X3.at<uchar>(y, x) = val;
+			printf("[%d,%d] %d \n", y, x, val);
+		}
+	}
+	printf("Matrix completed..\n");
+	return convultionMatrix3X3;
+}
+
 void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int devider) {
 	int resultValue = 0;
 
@@ -19,6 +37,17 @@ void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int d
 	resultValue /= devider;
 	piUc1.at<uchar>(x, y) = resultValue;
 }
+
+void DoConvolution(cv::Mat pi8uc1, cv::Mat convultionMatrix){
+	printf("Prepare for Convultion...\n");
+	for (int y = 0; y < pi8uc1.rows; y++) {
+		for (int x = 0; x < pi8uc1.cols; x++) {
+			SetConvolution(pi8uc1, convultionMatrix, x, y, 9);
+		}
+	}
+	printf("Convultion complete..\n");
+}
+
 
 uchar SetGamaToPixel(uchar pixel, double gama, uchar brightness) {
 	//return (uchar)(pow(pixel, gama) / 255) + brightness;
@@ -48,25 +77,25 @@ double AnisotropicFormula(double I, double cn, double ce, double cw, double cs, 
 	return ((I*(1.0 - (lambda*(cn + cs + ce + cw)))) + (lambda*((cn*in) + (cs*is) + (ce*ie) + (cw*iw))));
 }
 
-void SetAnisotropic(cv::Mat picUf1, double o, double lambda) {
+void SetAnisotropic(cv::Mat picFc1, double o, double lambda) {
 	//Create copy of origin
-	cv::Mat picUf1_copy;
-	picUf1.copyTo(picUf1_copy);
+	cv::Mat picDc1_copy;
+	picFc1.copyTo(picDc1_copy);
 
 	double I = 0;
 	double newI = 0;
 	double cn, ce, cw, cs, in, ie, iw, is;
 	//Apply algorythm
 	const int border_px = 1;
-	for (int i = border_px; i < picUf1.rows - border_px; i++)
+	for (int i = border_px; i < picFc1.rows - border_px; i++)
 	{
-		for (int j = border_px; j < picUf1.cols - border_px; j++)
+		for (int j = border_px; j < picFc1.cols - border_px; j++)
 		{
-			I = picUf1_copy.at<double>(i, j);
-			in = picUf1_copy.at<double>(i, j - 1);
-			is = picUf1_copy.at<double>(i, j + 1);
-			ie = picUf1_copy.at<double>(i + 1, j);
-			iw = picUf1_copy.at<double>(i - 1, j);
+			I = picDc1_copy.at<double>(i, j);
+			in = picDc1_copy.at<double>(i, j - 1);
+			is = picDc1_copy.at<double>(i, j + 1);
+			ie = picDc1_copy.at<double>(i + 1, j);
+			iw = picDc1_copy.at<double>(i - 1, j);
 
 			cn = calc_g(in - I, o);
 			ce = calc_g(ie - I, o);
@@ -74,7 +103,50 @@ void SetAnisotropic(cv::Mat picUf1, double o, double lambda) {
 			cs = calc_g(is - I, o);
 
 			newI = AnisotropicFormula(I, cn, ce, cw, cs, in, ie, iw, is, lambda);
-			picUf1.at<double>(i, j) = newI;
+			picFc1.at<double>(i, j) = newI;
 		}
 	}
+}
+
+void DoAnisoptropicIterations(cv::Mat pic64f1, int iteration_ratio, double o, double lambda){
+	printf("Try for anisotropic..[%d times]\n", iteration_ratio);
+	for (int i = 0; i < iteration_ratio; i++)
+	{
+		SetAnisotropic(pic64f1, o, lambda);
+		//cv::imshow("VALVE ANTISOPTROPIC", pic64f1);
+		//cv::waitKey(1);
+		if (!(i % ((iteration_ratio / 100) + 1)))printf("*");
+	}
+	printf("\n");
+	printf("Anisotropic complete..\n");
+}
+
+double CalcSpectrumAmplitude(double x, double Imagine) {
+	double sin_x = sin(x);
+	double cos_x = Imagine * cos(x);
+	return std::sqrt(((sin_x*sin_x)+(cos_x*cos_x)));
+}
+
+cv::Mat DiscreteFourierTransform(cv::Mat pic64f1) {
+	printf("Setting Discrete Fourier Transform..\n");
+	const int M = pic64f1.rows;
+	const int N = pic64f1.cols;
+	const double normalization = 1 / std::sqrt((M*N));
+	cv::Mat BaseMatrix = cv::Mat(M,N,CV_64FC1);
+
+	const double imagine = -1;
+	double x = 0;
+	double base = 0;
+	printf("Calculating Discrete Fourier Transform..\n");
+	for (float m = 0; m < M; m++)
+	{
+		for (float n = 0; n < N; n++)
+		{
+			x = (2*CV_PI)*((m/M)+(n/N));
+			base = CalcSpectrumAmplitude(x, imagine);
+			BaseMatrix.at<double>(m, n) = base;
+		}
+	}
+	printf("Discrete Fourier Transform done!");
+	return BaseMatrix;
 }
