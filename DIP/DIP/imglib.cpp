@@ -1,21 +1,41 @@
 #include "stdafx.h"
 
 
-cv::Mat CreateConvolutionMatrix(int size_r, int size_c, bool BoxOrGaussian) {
+cv::Mat CreateConvolutionMatrix(uint mSize, bool BoxOrGaussian) {
 	printf("Generating matrix..\n");
-	cv::Mat convultionMatrix3X3(3, 3, CV_8UC1);
-	uchar val = 0;
-	for (int y = 0; y < convultionMatrix3X3.rows; y++) {
-		for (int x = 0; x < convultionMatrix3X3.cols; x++) {
+	cv::Mat convultionMatrix(mSize, mSize, CV_8UC1);
+	int val = 0;
+	for (int y = 0; y < mSize; y++) {
+		for (int x = 0; x < mSize; x++) {
 			//Use box or gaussian blur
 			if (BoxOrGaussian) val = 1;
-			else val = (x + y + 1);
-			convultionMatrix3X3.at<uchar>(y, x) = val;
+			else {	
+				if (y <= mSize / 2) {
+					val = x + y;
+					if (x <= mSize / 2) {
+						val += 1;
+					}
+					else {
+						val -= 1;
+					}
+				}
+				else {
+					val = y - x;
+					if (x < mSize / 2) {
+						val -= 1;
+					}
+					else {
+						val += 1;
+					}
+				}
+			} 
+			convultionMatrix.at<uchar>(y, x) = (uchar)val;
 			printf("[%d,%d] %d \n", y, x, val);
+			val = 0;
 		}
 	}
 	printf("Matrix completed..\n");
-	return convultionMatrix3X3;
+	return convultionMatrix;
 }
 
 void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int devider) {

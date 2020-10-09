@@ -11,7 +11,8 @@
 #define REAL 0
 #define COMPLEX 1
 
-cv::Mat CreateConvolutionMatrix(int size_r, int size_c, bool BoxOrGaussian = true);
+//BoxOrGaussian => Box = true, Gausian = false
+cv::Mat CreateConvolutionMatrix(uint mSize = 3, bool BoxOrGaussian = true);
 void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int devider);
 void DoConvolution(cv::Mat pi8uc1, cv::Mat convultionMatrix);
 
