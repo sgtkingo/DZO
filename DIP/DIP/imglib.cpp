@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 
 
 cv::Mat CreateConvolutionMatrix(uint mSize, bool BoxOrGaussian) {
@@ -141,12 +141,26 @@ void DoAnisoptropicIterations(cv::Mat pic64f1, int iteration_ratio, double o, do
 	printf("Anisotropic complete..\n");
 }
 
-double CalcSpectrumAmplitude(double Real, double Imagine, bool Power) {
-	double result = ((Real * Real) + (Imagine * Imagine));
-	if (!Power){
-		result = std::sqrt(result);
-	}
-	return result;
+double CalcComplexNumberABS(cv::Vec2d cn) {
+	return (std::sqrt((cn[REAL]*cn[REAL])+(cn[IMAGINE]*cn[IMAGINE])));
+}
+//Base math: z1⋅z2=(x1+y1i)⋅(x2+y2i)=(x1x2−y1y2)+(x1y2+x2y1)i
+cv::Vec2d CalcComplexNumberMultiple(cv::Vec2d cn_a, cv::Vec2d cn_b) {
+	double realPart = (cn_a[REAL] * cn_b[REAL]) - (cn_a[IMAGINE] * cn_b[IMAGINE]);
+	double complexPart = (cn_a[REAL] * cn_b[IMAGINE]) + (cn_b[REAL] * cn_a[IMAGINE]);
+	return cv::Vec2d(realPart,complexPart);
+}
+
+double CalcComplexNumberScalarMultiple(cv::Vec2d cn_a, cv::Vec2d cn_b) {
+	return (cn_a[REAL] * cn_b[REAL]) + (-1.0)*(cn_a[IMAGINE] * cn_b[IMAGINE]);
+}
+
+double CalcSpectrumAmplitude(double Real, double Imagine) {
+	return CalcComplexNumberABS(cv::Vec2d(Real,Imagine));
+}
+
+double CalcSpectrumPower(double Real, double Imagine) {
+	return (std::log((Real * Real) + (Imagine * Imagine)));
 }
 
 cv::Mat ConvertToSpectrumAmplitude(cv::Mat ComplexMatrix){
@@ -161,7 +175,7 @@ cv::Mat ConvertToSpectrumAmplitude(cv::Mat ComplexMatrix){
 		for (size_t l = 0; l < cols; l++)
 		{
 			realPart = ComplexMatrix.at<cv::Vec2d>(k, l)[REAL];
-			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[COMPLEX];
+			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[IMAGINE];
 			img.at<double>(k, l) = CalcSpectrumAmplitude(realPart, complexPart);
 		}
 	}
@@ -181,7 +195,7 @@ cv::Mat GetPhasseImage(cv::Mat ComplexMatrix) {
 		for (size_t l = 0; l < cols; l++)
 		{
 			realPart = ComplexMatrix.at<cv::Vec2d>(k, l)[REAL];
-			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[COMPLEX];
+			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[IMAGINE];
 			img.at<double>(k, l) = std::atan(realPart / complexPart);
 		}
 	}
@@ -201,8 +215,8 @@ cv::Mat GetPowerSpectrum(cv::Mat ComplexMatrix) {
 		for (size_t l = 0; l < cols; l++)
 		{
 			realPart = ComplexMatrix.at<cv::Vec2d>(k, l)[REAL];
-			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[COMPLEX];
-			img.at<double>(k, l) = std::log(CalcSpectrumAmplitude(realPart, complexPart, true));
+			complexPart = ComplexMatrix.at<cv::Vec2d>(k, l)[IMAGINE];
+			img.at<double>(k, l) = CalcSpectrumPower(realPart,complexPart);
 		}
 	}
 	//Normalize result and switch Q
@@ -220,8 +234,10 @@ cv::Mat DiscreteFourierTransform(cv::Mat pic64f1) {
 	//Normalize input img
 	pic64f1 *= normalization;
 	//Complex matrix
-	cv::Mat BaseMatrix = cv::Mat(M,N,CV_64FC2);
+	cv::Mat FreqSpectrumMatrix = cv::Mat(M,N,CV_64FC2);
 
+
+	//Used variables:
 	double imgVal, realPart, complexPart, x;
 	double realSum = 0;
 	double complexSum = 0;
@@ -238,6 +254,7 @@ cv::Mat DiscreteFourierTransform(cv::Mat pic64f1) {
 				for (size_t n = 0; n < N; n++)
 				{
 					imgVal = pic64f1.at<double>(m, n);
+					//Calculate exp(x) arg:
 					x = (2 * CV_PI)*(((double)(k*m) / M) + ((double)(l*n) / N));
 					realPart = (imgVal * std::cos(x));
 					complexPart = (-imgVal * std::sin(x));
@@ -247,13 +264,55 @@ cv::Mat DiscreteFourierTransform(cv::Mat pic64f1) {
 				}
 			}
 			base = cv::Vec2d(realSum, complexSum);
-			BaseMatrix.at<cv::Vec2d>(k, l) = base;
+			FreqSpectrumMatrix.at<cv::Vec2d>(k, l) = base;
+			realSum = complexSum = 0.0;
 		}
 	}
 	printf("DFT done!\n");
 	//switch_quadrants(BaseMatrix);
-	return BaseMatrix;
+	return FreqSpectrumMatrix;
 }
+
+cv::Mat InverseDiscreteFourierTransform(cv::Mat matrixFreqSpectrum) {
+	printf("Setting Inverse Discrete Fourier Transform..\n");
+	const int M = matrixFreqSpectrum.rows;
+	const int N = matrixFreqSpectrum.cols;
+
+	//Output image
+	cv::Mat img = cv::Mat(M, N, CV_64FC1);
+
+	//Used variables
+	double imgVal = 0, x = 0;
+	cv::Vec2d Base, F, MultiplicationResult;
+
+	printf("Calculating DFT..\n");
+	for (size_t m = 0; m < M; m++)
+	{
+		printf("Inverse DFT progress: %2.0f %%\n", (double)m / M * 100.0);
+		for (size_t n = 0; n < N; n++)
+		{
+			for (size_t k = 0; k < M; k++)
+			{
+				for (size_t l = 0; l < N; l++)
+				{
+					//Freq matrix value:
+					F = matrixFreqSpectrum.at<cv::Vec2d>(k, l);
+					//Calculate exp(x) arg:
+					x = (2 * CV_PI)*(((double)(k*m) / M) + ((double)(l*n) / N));
+					Base = cv::Vec2d(std::cos(x), std::sin(x));
+
+					imgVal += CalcComplexNumberScalarMultiple(F, Base);
+				}
+			}
+			img.at<double>(m, n) = imgVal;
+			imgVal = 0;
+		}
+	}
+	printf("Inverse DFT done!\n");
+	cv::normalize(img, img, 0.0, 1.0, cv::NORM_MINMAX);
+	return img;
+}
+
 //Switch Q 1<->3 and Q 2<->4
 void switch_quadrants(cv::Mat & src)
 {
