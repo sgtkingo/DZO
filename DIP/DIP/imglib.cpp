@@ -38,7 +38,7 @@ cv::Mat CreateConvolutionMatrix(uint mSize, bool BoxOrGaussian) {
 	return convultionMatrix;
 }
 
-void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int devider) {
+void SetConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix, int x, int y, int devider) {
 	int resultValue = 0;
 
 	uchar pixelValue = 0;
@@ -48,21 +48,22 @@ void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int d
 		for (int j = 0; j < (convultionMatrix.cols); j++)
 		{
 			if ((x - i) >= 0 && (y - j) >= 0) {
-				pixelValue = piUc1.at<uchar>(x - i, y - j);
+				pixelValue = pic8uc1.at<uchar>(x - i, y - j);
 				convValue = convultionMatrix.at<uchar>(i, j);
 				resultValue += (pixelValue * convValue);
 			}
 		}
 	}
 	resultValue /= devider;
-	piUc1.at<uchar>(x, y) = resultValue;
+	pic8uc1.at<uchar>(x, y) = resultValue;
 }
 
-void DoConvolution(cv::Mat pi8uc1, cv::Mat convultionMatrix){
+void DoConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix){
+	const int matrixSize = convultionMatrix.rows * convultionMatrix.cols;
 	printf("Prepare for Convultion...\n");
-	for (int y = 0; y < pi8uc1.rows; y++) {
-		for (int x = 0; x < pi8uc1.cols; x++) {
-			SetConvolution(pi8uc1, convultionMatrix, x, y, 9);
+	for (int y = 0; y < pic8uc1.rows; y++) {
+		for (int x = 0; x < pic8uc1.cols; x++) {
+			SetConvolution(pic8uc1, convultionMatrix, x, y, matrixSize);
 		}
 	}
 	printf("Convultion complete..\n");
@@ -75,15 +76,15 @@ uchar SetGamaToPixel(uchar pixel, double gama, uchar brightness) {
 	return result;
 }
 
-void ImgGamaEdit(cv::Mat picUc3, double gama, uchar bright) {
+void ImgGamaEdit(cv::Mat pic8Uc3, double gama, uchar bright) {
 	uchar r, g, b;
-	for (int y = 0; y < picUc3.rows; y++) {
-		for (int x = 0; x < picUc3.cols; x++) {
-			b = SetGamaToPixel(picUc3.at<cv::Vec3b>(y, x)[B], gama, bright);
-			g = SetGamaToPixel(picUc3.at<cv::Vec3b>(y, x)[G], gama, bright);
-			r = SetGamaToPixel(picUc3.at<cv::Vec3b>(y, x)[R], gama, bright);
+	for (int y = 0; y < pic8Uc3.rows; y++) {
+		for (int x = 0; x < pic8Uc3.cols; x++) {
+			b = SetGamaToPixel(pic8Uc3.at<cv::Vec3b>(y, x)[B], gama, bright);
+			g = SetGamaToPixel(pic8Uc3.at<cv::Vec3b>(y, x)[G], gama, bright);
+			r = SetGamaToPixel(pic8Uc3.at<cv::Vec3b>(y, x)[R], gama, bright);
 
-			picUc3.at<cv::Vec3b>(y, x) = { b, g, r };
+			pic8Uc3.at<cv::Vec3b>(y, x) = { b, g, r };
 		}
 	}
 }

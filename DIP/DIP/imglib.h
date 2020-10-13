@@ -13,11 +13,11 @@
 
 //BoxOrGaussian => Box = true, Gausian = false
 cv::Mat CreateConvolutionMatrix(uint mSize = 3, bool BoxOrGaussian = true);
-void SetConvolution(cv::Mat piUc1, cv::Mat convultionMatrix, int x, int y, int devider);
-void DoConvolution(cv::Mat pi8uc1, cv::Mat convultionMatrix);
+void SetConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix, int x, int y, int devider);
+void DoConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix);
 
 uchar SetGamaToPixel(uchar pixel, double gama, uchar brightness);
-void ImgGamaEdit(cv::Mat picUc3, double gama, uchar bright);
+void ImgGamaEdit(cv::Mat pic8Uc3, double gama, uchar bright);
 
 double calc_g(double I, double o);
 double AnisotropicFormula(double I, double cn, double ce, double cw, double cs, double in, double ie, double iw, double is, double lambda);
