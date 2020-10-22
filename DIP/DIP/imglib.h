@@ -11,6 +11,9 @@
 #define REAL 0
 #define IMAGINE 1
 
+#define LOW_PASS 1
+#define HIGH_PASS 0
+
 //BoxOrGaussian => Box = true, Gausian = false
 cv::Mat CreateConvolutionMatrix(uint mSize = 3, bool BoxOrGaussian = true);
 void SetConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix, int x, int y, int devider);
@@ -33,8 +36,12 @@ void switch_quadrants(cv::Mat & src);
 double CalcSpectrumAmplitude(double Real, double Imagine);
 double CalcSpectrumPower(double Real, double Imagine);
 
-cv::Mat ConvertToSpectrumAmplitude(cv::Mat ComplexMatrix);
+cv::Mat GetSpectrumAmplitude(cv::Mat ComplexMatrix);
 cv::Mat GetPowerSpectrum(cv::Mat ComplexMatrix);
 cv::Mat GetPhasseImage(cv::Mat ComplexMatrix);
 cv::Mat DiscreteFourierTransform(cv::Mat pic64f1);
 cv::Mat InverseDiscreteFourierTransform(cv::Mat matrixFreqSpectrum);
+
+//Filters
+cv::Mat FilterMask(int rows, int cols, double diametr_ration, int mode);
+cv::Mat LowPassFilter(cv::Mat matrixFreqSpectrum, double ratio);	

@@ -164,7 +164,7 @@ double CalcSpectrumPower(double Real, double Imagine) {
 	return (std::log((Real * Real) + (Imagine * Imagine)));
 }
 
-cv::Mat ConvertToSpectrumAmplitude(cv::Mat ComplexMatrix){
+cv::Mat GetSpectrumAmplitude(cv::Mat ComplexMatrix){
 	printf("Converting to Fourier Spectrum Amplitude..\n");
 	const size_t rows = ComplexMatrix.rows;
 	const size_t cols = ComplexMatrix.cols;
@@ -333,4 +333,37 @@ void switch_quadrants(cv::Mat & src)
 	q1.copyTo(tmp);
 	q2.copyTo(q1);
 	tmp.copyTo(q2);
+}
+
+cv::Mat FilterMask(int rows, int cols, double diametr_ration, int mode){
+	int radius = ((rows + cols) / 4)*diametr_ration;
+
+	cv::Mat imgMask = cv::Mat(rows, cols, CV_64FC1);
+	imgMask.setTo(cv::Scalar(1.0 - mode));
+
+	cv::circle(imgMask, cv::Point(rows / 2, cols / 2), radius, cv::Scalar(mode), CV_FILLED);
+	switch_quadrants(imgMask);
+	return imgMask;
+}
+
+cv::Mat LowPassFilter(cv::Mat matrixFreqSpectrum, double ratio){
+	printf("Using LowPass Filter...\n");
+	const int M = matrixFreqSpectrum.rows;
+	const int N = matrixFreqSpectrum.cols;
+
+	cv::Mat outMat = cv::Mat(M, N, CV_64FC2);
+	cv::Mat filterMask = FilterMask(M,N,ratio,LOW_PASS);
+	//matrixFreqSpectrum *= filterMask;
+	cv::Vec2d newPointValue = 0;
+
+	for (int r = 0; r < M; r++)
+	{
+		for (int c = 0; c < N; c++)
+		{
+			newPointValue = matrixFreqSpectrum.at<cv::Vec2d>(r, c) * filterMask.at<double>(r, c);
+			outMat.at<cv::Vec2d>(r, c) = newPointValue;
+		}
+	}
+
+	return outMat;
 }
