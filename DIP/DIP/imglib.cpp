@@ -1,5 +1,10 @@
 ﻿#include "stdafx.h"
 
+void ImageShow(cv::Mat img) 
+{
+	cv::imshow("INPUT IMG", img);
+	cv::waitKey();
+}
 
 cv::Mat CreateConvolutionMatrix(uint mSize, bool BoxOrGaussian) {
 	printf("Generating matrix..\n");
@@ -335,14 +340,14 @@ void switch_quadrants(cv::Mat & src)
 	tmp.copyTo(q2);
 }
 
-cv::Mat FilterMask(int rows, int cols, double diametr_ration, int mode){
-	int radius = ((rows + cols) / 4)*diametr_ration;
+cv::Mat CircleFilterMask(int rows, int cols, double diametr_ration, int mode){
+	int radius = ((rows + cols) / 3)*diametr_ration;
 
 	cv::Mat imgMask = cv::Mat(rows, cols, CV_64FC1);
 	imgMask.setTo(cv::Scalar(1.0 - mode));
 
 	cv::circle(imgMask, cv::Point(rows / 2, cols / 2), radius, cv::Scalar(mode), CV_FILLED);
-	switch_quadrants(imgMask);
+	//switch_quadrants(imgMask);
 	return imgMask;
 }
 
@@ -352,7 +357,7 @@ cv::Mat LowPassFilter(cv::Mat matrixFreqSpectrum, double ratio){
 	const int N = matrixFreqSpectrum.cols;
 
 	cv::Mat outMat = cv::Mat(M, N, CV_64FC2);
-	cv::Mat filterMask = FilterMask(M,N,ratio,LOW_PASS);
+	cv::Mat filterMask = CircleFilterMask(M,N,ratio,LOW_PASS);
 	//matrixFreqSpectrum *= filterMask;
 	cv::Vec2d newPointValue = 0;
 
@@ -364,6 +369,6 @@ cv::Mat LowPassFilter(cv::Mat matrixFreqSpectrum, double ratio){
 			outMat.at<cv::Vec2d>(r, c) = newPointValue;
 		}
 	}
-
+	//switch_quadrants(outMat);
 	return outMat;
 }

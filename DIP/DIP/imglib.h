@@ -11,9 +11,11 @@
 #define REAL 0
 #define IMAGINE 1
 
-#define LOW_PASS 1
-#define HIGH_PASS 0
+#define LOW_PASS 0
+#define HIGH_PASS 1
 
+//Share function
+void ImageShow(cv::Mat img);
 //BoxOrGaussian => Box = true, Gausian = false
 cv::Mat CreateConvolutionMatrix(uint mSize = 3, bool BoxOrGaussian = true);
 void SetConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix, int x, int y, int devider);
@@ -43,5 +45,5 @@ cv::Mat DiscreteFourierTransform(cv::Mat pic64f1);
 cv::Mat InverseDiscreteFourierTransform(cv::Mat matrixFreqSpectrum);
 
 //Filters
-cv::Mat FilterMask(int rows, int cols, double diametr_ration, int mode);
+cv::Mat CircleFilterMask(int rows, int cols, double diametr_ration, int mode);
 cv::Mat LowPassFilter(cv::Mat matrixFreqSpectrum, double ratio);	
