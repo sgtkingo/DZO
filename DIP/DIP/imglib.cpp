@@ -415,16 +415,123 @@ struct RLDUserData {
 	int K1;
 	int K2;
 
-	RLDUserData(const int K1, const int K2, cv::Mat & src_8uc3_img, cv::Mat & undistorted_8uc3_img) : K1(K1), K2(K2), src_8uc3_img(src_8uc3_img), undistorted_8uc3_img(undistorted_8uc3_img) {
-
-	}
+	RLDUserData(const int K1, const int K2, cv::Mat & src_8uc3_img, cv::Mat & undistorted_8uc3_img) : K1(K1), K2(K2), src_8uc3_img(src_8uc3_img), undistorted_8uc3_img(undistorted_8uc3_img) {}
 };
+
+cv::Vec3b pixel_bilinear_interpolation(const cv::Mat& img, double x, double y)
+{
+	int lowX = (int)ceil(x);
+	int highX = (int)floor(x);
+
+	int lowY = (int)ceil(y);
+	int highY = (int)floor(y);
+
+	cv::Vec3b bottomLeft = img.at<cv::Vec3b>(cv::Point(highX, highY));
+	cv::Vec3b topLeft = img.at<cv::Vec3b>(cv::Point(highX, lowY));
+	cv::Vec3b bottomRight = img.at<cv::Vec3b>(cv::Point(lowX, highY));
+	cv::Vec3b topRight = img.at<cv::Vec3b>(cv::Point(lowX, lowY));
+
+	cv::Vec3b R1 = (((lowX - x) / (lowX - highX)) * bottomLeft) + (((x - highX) / (lowX - highX)) * bottomRight);
+	cv::Vec3b R2 = (((lowX - x) / (lowX - highX)) * topLeft) + (((x - highX) / (lowX - highX)) * topRight);
+	cv::Vec3b result = ((((lowY - y) / (lowY - highY)) * R1) + (((y - highY) / (lowY - highY))*R2));
+	return result;
+}
+
+cv::Mat bilinear_interpolation(const cv::Mat& img, double K1, double K2) 
+{
+	double _R2, fi, xD, yD, actualX, actualY;
+
+	const int M = img.rows;
+	const int N = img.cols;
+
+	float Cu = (double)M / 2.0;
+	float Cv = (double)N / 2.0;
+	float _R = sqrt((pow(Cu, 2) + pow(Cv, 2)));
+
+	cv::Mat outMat = cv::Mat(img.size(), img.type());
+
+	for (double r = 0; r < M; r++)
+	{
+		actualY = (r - Cv) / _R;
+
+		for (int c = 0; c < N; c++)
+		{
+			actualX = (c - Cu) / _R;
+
+			_R2 = (pow(actualX, 2) + pow(actualY, 2));
+
+			fi = (1 + (K1 * _R2) + (K2 * pow(_R2, 2)));
+			fi = 1.0 / fi;
+
+			xD = ((c - Cu) * fi) + Cu;
+			yD = ((r - Cv) * fi) + Cv;
+
+			outMat.at<cv::Vec3b>(r, c) = pixel_bilinear_interpolation(img, xD, yD);
+		}
+	}
+	return outMat;
+}
+
+cv::Vec3b pixel_average_pixel(const cv::Mat& img, double x, double y)
+{
+	int lowX = (int)ceil(x);
+	int highX = (int)floor(x);
+
+	int lowY = (int)ceil(y);
+	int highY = (int)floor(y);
+
+	cv::Vec3f bottomLeft = img.at<cv::Vec3b>(cv::Point(highX, highY));
+	cv::Vec3f topLeft = img.at<cv::Vec3b>(cv::Point(highX, lowY));
+	cv::Vec3f bottomRight = img.at<cv::Vec3b>(cv::Point(lowX, highY));
+	cv::Vec3f topRight = img.at<cv::Vec3b>(cv::Point(lowX, lowY));
+
+
+	cv::Vec3b result = (bottomLeft + topLeft + bottomRight + topRight) / 4;
+	return result;
+}
+
+cv::Mat average_pixel(const cv::Mat& img, double K1, double K2)
+{
+	double _R2, fi, xD, yD, actualX, actualY;
+
+	const int M = img.rows;
+	const int N = img.cols;
+
+	float Cu = (double)M / 2.0;
+	float Cv = (double)N / 2.0;
+	float _R = sqrt((pow(Cu, 2) + pow(Cv, 2)));
+
+	cv::Mat outMat = cv::Mat(img.size(), img.type());
+
+	for (double r = 0; r < M; r++)
+	{
+		actualY = (r - Cv) / _R;
+
+		for (int c = 0; c < N; c++)
+		{
+			actualX = (c - Cu) / _R;
+
+			_R2 = (pow(actualX, 2) + pow(actualY, 2));
+
+			fi = (1 + (K1 * _R2) + (K2 * pow(_R2, 2)));
+			fi = 1.0 / fi;
+
+			xD = ((c - Cu) * fi) + Cu;
+			yD = ((r - Cv) * fi) + Cv;
+
+			outMat.at<cv::Vec3b>(r, c) = pixel_average_pixel(img, xD, yD);
+		}
+	}
+	return outMat;
+}
 
 void geom_dist(cv::Mat & src_8uc3_img, cv::Mat & dst_8uc3_img, bool bili, double K1, double K2)
 {
-	const int ROWS = src_8uc3_img.rows;
-	const int COLS = src_8uc3_img.cols;
-	cv::resize(src_8uc3_img, dst_8uc3_img,cv::Size(),K1,K2);
+	//cv::resize(src_8uc3_img, dst_8uc3_img,cv::Size(),K1,K2);
+	if (bili)
+		dst_8uc3_img = bilinear_interpolation(src_8uc3_img, K1, K2);
+	else
+		dst_8uc3_img = average_pixel(src_8uc3_img, K1, K2);
 }
 
 void apply_rld(int id, void * user_data)

@@ -57,4 +57,10 @@ cv::Mat Filter(cv::Mat matrixFreqSpectrum, cv::Mat filterMask);
 void apply_rld(int id, void * user_data);
 void geom_dist(cv::Mat & src_8uc3_img, cv::Mat & dst_8uc3_img, bool bili, double K1 = 1.0, double K2 = 1.0);
 
+cv::Vec3b pixel_bilinear_interpolation(const cv::Mat& img, double x, double y);
+cv::Mat bilinear_interpolation(const cv::Mat& img, double K1, double K2);
+
+cv::Vec3b pixel_average_pixel(const cv::Mat& img, double x, double y);
+cv::Mat average_pixel(const cv::Mat& img, double K1, double K2);
+
 int ex_rld();
