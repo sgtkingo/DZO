@@ -418,7 +418,7 @@ struct RLDUserData {
 	RLDUserData(const int K1, const int K2, cv::Mat & src_8uc3_img, cv::Mat & undistorted_8uc3_img) : K1(K1), K2(K2), src_8uc3_img(src_8uc3_img), undistorted_8uc3_img(undistorted_8uc3_img) {}
 };
 
-cv::Vec3b pixel_bilinear_interpolation(const cv::Mat& img, double x, double y)
+inline cv::Vec3b pixel_bilinear_interpolation(const cv::Mat& img, double x, double y)
 {
 	int lowX = (int)ceil(x);
 	int highX = (int)floor(x);
@@ -472,7 +472,7 @@ cv::Mat bilinear_interpolation(const cv::Mat& img, double K1, double K2)
 	return outMat;
 }
 
-cv::Vec3b pixel_average_pixel(const cv::Mat& img, double x, double y)
+inline cv::Vec3b pixel_average_pixel(const cv::Mat& img, double x, double y)
 {
 	int lowX = (int)ceil(x);
 	int highX = (int)floor(x);
