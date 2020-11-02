@@ -46,4 +46,15 @@ cv::Mat InverseDiscreteFourierTransform(cv::Mat matrixFreqSpectrum);
 
 //Filters
 cv::Mat CircleFilterMask(int rows, int cols, double diametr_ration, int mode);
-cv::Mat LowPassFilter(cv::Mat matrixFreqSpectrum, double ratio);	
+cv::Mat FilterMask(cv::Mat powerSpectrum, double ratio);
+
+cv::Mat LowPassFilter(cv::Mat matrixFreqSpectrum, double ratio);
+cv::Mat HighPassFilter(cv::Mat matrixFreqSpectrum, double ratio);
+
+cv::Mat Filter(cv::Mat matrixFreqSpectrum, cv::Mat filterMask);
+
+//Distorion
+void apply_rld(int id, void * user_data);
+void geom_dist(cv::Mat & src_8uc3_img, cv::Mat & dst_8uc3_img, bool bili, double K1 = 1.0, double K2 = 1.0);
+
+int ex_rld();
