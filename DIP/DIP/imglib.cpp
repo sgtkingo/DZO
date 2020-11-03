@@ -1,9 +1,22 @@
 ﻿#include "stdafx.h"
 
-void ImageShow(cv::Mat img) 
+void ImageShow(cv::Mat img, std::string name)
 {
-	cv::imshow("INPUT IMG", img);
+	cv::imshow(name, img);
 	cv::waitKey();
+}
+
+cv::Mat OpenImage(std::string file_path, int open_mode) {
+	cv::Mat img = cv::imread(file_path, open_mode);
+	if (img.empty())
+	{
+		printf("Unable to load image!\n");
+		exit(-1);
+	}
+	std::string img_name = file_path.substr(file_path.find_last_of('/')+1);
+	ImageShow(img, img_name);
+
+	return img;
 }
 
 cv::Mat CreateConvolutionMatrix(uint mSize, bool BoxOrGaussian) {
@@ -569,4 +582,84 @@ int ex_rld()
 	cv::waitKey(0);
 
 	return 0;
+}
+
+//Histogram
+uint cumulative_distribution_function(const std::vector<uint> histogram, uchar brightnessValue)
+{
+	uint result = 0;
+	for (int j = 0; j <= brightnessValue; j++)
+	{
+		result += histogram[j];
+	}
+	return result;
+}
+
+std::vector<uint> create_histogram(const cv::Mat & src, int L_value)
+{
+	printf("Creating Histogram vector...\n");
+	std::vector<uint> histogram ;
+	// Init histogram
+	histogram.resize(L_value);
+	for (size_t i = 0; i < L_value; i++)
+	{
+		histogram[i] = 0;
+	}
+
+	uchar pixelValue = 0;
+	for (size_t r = 0; r < src.rows; r++)
+	{
+		for (size_t c = 0; c < src.cols; c++)
+		{
+			pixelValue = src.at<uchar>(r, c);
+			histogram[pixelValue] += 1;
+		}
+	}
+	return histogram;
+}
+
+std::vector<uchar> equalized_brightness(const std::vector<uint> histogram, const uint width, const uint height, int L_value)
+{
+	printf("Creating Equalized Brightness vector...\n");
+	std::vector<uchar> output;
+	// Init histogram
+	output.resize(L_value);
+	for (size_t i = 0; i < L_value; i++)
+	{
+		output[i] = 0;
+	}
+
+	double minCdf = *min_element(histogram.begin(), histogram.end());
+	double cdf = 0;
+	double correctValue = 0;
+	for (size_t i = 0; i < L_value; i++)
+	{
+		cdf = cumulative_distribution_function(histogram, i);
+		correctValue = round(((cdf - minCdf) / ((width*height) - minCdf)) * (L_value - 1));
+
+		if (correctValue < 0) correctValue = 0;
+		output[i] = (uchar)(correctValue);
+	}
+	return output;
+}
+
+cv::Mat Histogram(const cv::Mat src) 
+{
+	printf("Preparing Histogram...\n");
+	cv::Mat outImg = cv::Mat(src.size(), src.type());
+
+	std::vector<uint> histogram = create_histogram(src, L);
+	std::vector<uchar> lut = equalized_brightness(histogram, src.cols, src.rows, L);
+
+	uchar pixelValue = 0;
+	for (unsigned int row = 0; row < src.rows; row++)
+	{
+		for (unsigned int col = 0; col < src.cols; col++)
+		{
+			pixelValue = src.at<uchar>(row, col);
+			outImg.at<uchar>(row, col) = lut[pixelValue];
+		}
+	}
+	printf("Histogram Eq Done!\n");
+	return outImg;
 }

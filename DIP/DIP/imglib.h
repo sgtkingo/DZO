@@ -1,12 +1,17 @@
 #pragma once
 #include <stdio.h>
 #include <cmath>
+#include <vector>
+#include <algorithm>
+#include <string>
 #include <opencv2/opencv.hpp>
 
 #define B 0
 #define G 1
 #define R 2
 #define A 3
+
+#define L 256
 
 #define REAL 0
 #define IMAGINE 1
@@ -15,7 +20,9 @@
 #define HIGH_PASS 1
 
 //Share function
-void ImageShow(cv::Mat img);
+void ImageShow(cv::Mat img, std::string name = "INPUT IMG");
+cv::Mat OpenImage(std::string file_path, int open_mode = cv::IMREAD_COLOR);
+
 //BoxOrGaussian => Box = true, Gausian = false
 cv::Mat CreateConvolutionMatrix(uint mSize = 3, bool BoxOrGaussian = true);
 void SetConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix, int x, int y, int devider);
@@ -64,3 +71,9 @@ inline cv::Vec3b pixel_average_pixel(const cv::Mat& img, double x, double y);
 cv::Mat average_pixel(const cv::Mat& img, double K1, double K2);
 
 int ex_rld();
+
+//Histogramn
+uint cumulative_distribution_function(const std::vector<uint> histogram, uchar brightnessValue);
+std::vector<uint> create_histogram(const cv::Mat & src, int L_value);	
+std::vector<uchar> equalized_brightness(const std::vector<uint> histogram, const uint width, const uint height, int L_value);
+cv::Mat Histogram(const cv::Mat src);
