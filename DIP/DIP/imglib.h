@@ -77,3 +77,8 @@ uint cumulative_distribution_function(const std::vector<uint> histogram, uchar b
 std::vector<uint> create_histogram(const cv::Mat & src, int L_value);	
 std::vector<uchar> equalized_brightness(const std::vector<uint> histogram, const uint width, const uint height, int L_value);
 cv::Mat Histogram(const cv::Mat src);
+
+//Perspective
+cv::Mat PerspectiveTransformation(const cv::Mat & input, const cv::Mat & overlay, const std::vector<cv::Point2i> bgPoints, const std::vector<cv::Point2i> overlayPoints);
+cv::Mat TransformImage(const cv::Mat img, const std::vector<cv::Point2f> originPonits, const std::vector<cv::Point2f> transformPoints);
+cv::Mat perspective_transformation(const cv::Mat & input, const cv::Mat & overlay, const std::vector<std::pair<cv::Point2i, cv::Point2i>>& points);

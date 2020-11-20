@@ -422,6 +422,7 @@ cv::Mat Filter(cv::Mat matrixFreqSpectrum, cv::Mat filterMask) {
 	return outMat;
 }
 
+//Geo
 struct RLDUserData {
 	cv::Mat & src_8uc3_img;
 	cv::Mat & undistorted_8uc3_img;
@@ -457,9 +458,10 @@ cv::Mat bilinear_interpolation(const cv::Mat& img, double K1, double K2)
 	const int M = img.rows;
 	const int N = img.cols;
 
-	float Cu = (double)M / 2.0;
-	float Cv = (double)N / 2.0;
-	float _R = sqrt((pow(Cu, 2) + pow(Cv, 2)));
+	float Cv = (double)M / 2.0;
+	float Cu = (double)N / 2.0;
+
+	double _R = sqrt((pow(Cu, 2) + pow(Cv, 2)));
 
 	cv::Mat outMat = cv::Mat(img.size(), img.type());
 
@@ -510,8 +512,8 @@ cv::Mat average_pixel(const cv::Mat& img, double K1, double K2)
 	const int M = img.rows;
 	const int N = img.cols;
 
-	float Cu = (double)M / 2.0;
-	float Cv = (double)N / 2.0;
+	float Cv = (double)M / 2.0;
+	float Cu = (double)N / 2.0;
 	float _R = sqrt((pow(Cu, 2) + pow(Cv, 2)));
 
 	cv::Mat outMat = cv::Mat(img.size(), img.type());
@@ -662,4 +664,224 @@ cv::Mat Histogram(const cv::Mat src)
 	}
 	printf("Histogram Eq Done!\n");
 	return outImg;
+}
+
+void FillTransformationMatrix(cv::Mat & A_mat, cv::Mat & B_mat, const std::vector<cv::Point2i> inPoints, const std::vector<cv::Point2i> outPoints) {
+	printf("Filling transform matrix...\n");
+	cv::Point2i xI, xO;
+
+	const int rows = (A_mat.rows / 2);
+	//getting values to the matrix A and B 
+	for (size_t row = 0; row < rows; row++)
+	{
+		xI= inPoints[row];
+		xO = outPoints[row];
+
+		A_mat.at<double>(row * 2, 0) = (double)xO.y;
+		A_mat.at<double>(row * 2, 1) = 1.0f;
+		A_mat.at<double>(row * 2, 2) = 0.0f;
+		A_mat.at<double>(row * 2, 3) = 0.0f;
+		A_mat.at<double>(row * 2, 4) = 0.0f;
+		A_mat.at<double>(row * 2, 5) = (double)(-xI.x * xO.x);
+		A_mat.at<double>(row * 2, 6) = (double)(-xI.x * xO.y);
+		A_mat.at<double>(row * 2, 7) = (double)(-xI.x);
+
+		A_mat.at<double>((row * 2) + 1, 0) = 0.0f;
+		A_mat.at<double>((row * 2) + 1, 1) = 0.0f;
+		A_mat.at<double>((row * 2) + 1, 2) = (double)xO.x;
+		A_mat.at<double>((row * 2) + 1, 3) = (double)xO.y;
+		A_mat.at<double>((row * 2) + 1, 4) = 1.0f;
+		A_mat.at<double>((row * 2) + 1, 5) = (double)(-xI.y * xO.x);
+		A_mat.at<double>((row * 2) + 1, 6) = (double)(-xI.y * xO.y);
+		A_mat.at<double>((row * 2) + 1, 7) = (double)(-xI.y);
+
+		B_mat.at<double>(row * 2, 0) = (double)-xO.x;
+		B_mat.at<double>((row * 2) + 1, 0) = 0.0f;
+	}
+}
+
+cv::Mat PrepareTransformationMatrix(const std::vector<cv::Point2i> bgPoints, const std::vector<cv::Point2i> overlayPoints) {
+	printf("Prepare transform matrix...\n");
+	//Prepare matrixs
+	cv::Mat A_mat = cv::Mat(8, 8, CV_64FC1);
+	cv::Mat B_mat = cv::Mat(8, 1, CV_64FC1);
+	FillTransformationMatrix(A_mat, B_mat, overlayPoints, bgPoints);
+
+	//Do math
+	cv::Mat matResult = cv::Mat(8, 1, CV_64FC1);
+	cv::solve(A_mat, B_mat, matResult);
+	for (size_t r = 0; r < matResult.rows; r++)
+	{
+		for (size_t c = 0; c < matResult.cols; c++)
+		{
+			printf("[%d][%d] %f \n", r, c, matResult.at<double>(r,c));
+		}
+	}
+
+	return matResult;
+}
+
+cv::Mat CalculateTransformationMatrix(const cv::Mat & transMatrix) {
+	printf("Calculate transform matrix...\n");
+	//Tranform prepare
+	cv::Mat transformationMatrix = cv::Mat(3, 3, CV_64FC1);
+	transformationMatrix.at<double>(0, 0) = 1.0f;
+
+	unsigned int index = 0;
+	for (unsigned int r = 0; r < transformationMatrix.rows; r++)
+	{
+		for (unsigned int c = 0; c < transformationMatrix.cols; c++)
+		{
+			if (!(r == 0 && r == 0))
+				transformationMatrix.at<double>(r, c) = transMatrix.at<double>(index++, 0);
+			printf("[%d][%d] %f \n", r, c, transformationMatrix.at<double>(r, c));
+		}
+	}
+	return transformationMatrix;
+}
+
+cv::Mat PerspectiveTransformation(const cv::Mat & input, const cv::Mat & overlay, const std::vector<cv::Point2i> bgPoints, const std::vector<cv::Point2i> overlayPoints)
+{
+	printf("Perspective transform starting...\n");
+	if (bgPoints.size() != 4 || overlayPoints.size() != 4)
+		throw new std::exception("There must be 4 pairs of points.");
+	//Prepare result img
+	cv::Mat result = cv::Mat(input.rows, input.cols, input.type());
+	input.copyTo(result);
+
+	cv::Mat matResult = PrepareTransformationMatrix(bgPoints, overlayPoints);
+	cv::Mat transformationMatrix = CalculateTransformationMatrix(matResult);
+
+	cv::Mat coord = cv::Mat(3, 1, CV_64FC1);
+	cv::Mat homog = cv::Mat(3, 1, CV_64FC1);
+	coord.at<double>(2, 0) = 1.0f;
+
+	//Do transformation
+	printf("Transformation...\n");
+	uint transformedX, transformedY;
+	double homogX, homogY, homogW;
+
+	for (unsigned int r = 0; r < overlay.rows; r++)
+	{
+		coord.at<double>(1, 0) = (double)r;
+		for (unsigned int c = 0; c < overlay.cols; c++)
+		{
+			coord.at<double>(0, 0) = (double)c;
+
+			homog = transformationMatrix * coord;
+			homogX = homog.at<double>(0, 0);
+			homogY = homog.at<double>(1, 0);
+			homogW = homog.at<double>(2, 0);
+
+			transformedX = (uint)(homogX / homogW);
+			transformedY = (uint)(homogY / homogW);
+
+			cv::Vec3b overlayPixel = overlay.at<cv::Vec3b>(r, c);
+
+			if( transformedX < result.rows && transformedY < result.cols )
+				result.at<cv::Vec3b>(transformedX, transformedY) = overlayPixel;
+		}
+		cv::imshow("Result", result);
+		cv::waitKey(50);
+	}
+
+	return result;
+}
+
+cv::Mat TransformImage(const cv::Mat img, const std::vector<cv::Point2f> originPonits, const std::vector<cv::Point2f> transformPoints) {
+	printf("Transform Image starting...\n");
+	cv::Mat perspectiveMat_ = cv::findHomography(originPonits, transformPoints, CV_RANSAC);
+	//use perspective transform to translate other points to real word coordinates
+	cv::Mat result = cv::Mat(img.rows, img.cols, img.type());
+
+	cv::perspectiveTransform(img, result, perspectiveMat_);
+	return result;
+}
+
+cv::Mat perspective_transformation(const cv::Mat & input, const cv::Mat & overlay, const std::vector<std::pair<cv::Point2i, cv::Point2i>>& points)
+{
+	printf("Perspective transform starting...\n");
+	if (points.size() != 4)
+		throw new std::exception("There must be 4 pairs of points.");
+	//Prepare result
+	cv::Mat result = cv::Mat(input.rows, input.cols, input.type());
+	input.copyTo(result);
+
+	cv::Mat A_mat = cv::Mat(8, 8, CV_64FC1);
+	cv::Mat B_mat = cv::Mat(8, 1, CV_64FC1);
+
+	cv::Point2i x, xF;
+
+	for (size_t row = 0; row < (A_mat.rows / 2); row++)
+	{
+		xF = points[row].second;
+		x = points[row].first;
+
+		A_mat.at<double>(row * 2, 0) = (double)x.y;
+		A_mat.at<double>(row * 2, 1) = 1.0f;
+		A_mat.at<double>(row * 2, 2) = 0.0f;
+		A_mat.at<double>(row * 2, 3) = 0.0f;
+		A_mat.at<double>(row * 2, 4) = 0.0f;
+		A_mat.at<double>(row * 2, 5) = (double)(-xF.x * x.x);
+		A_mat.at<double>(row * 2, 6) = (double)(-xF.x * x.y);
+		A_mat.at<double>(row * 2, 7) = (double)(-xF.x);
+
+		A_mat.at<double>((row * 2) + 1, 0) = 0.0f;
+		A_mat.at<double>((row * 2) + 1, 1) = 0.0f;
+		A_mat.at<double>((row * 2) + 1, 2) = (double)x.x;
+		A_mat.at<double>((row * 2) + 1, 3) = (double)x.y;
+		A_mat.at<double>((row * 2) + 1, 4) = 1.0f;
+		A_mat.at<double>((row * 2) + 1, 5) = (double)(-xF.y * x.x);
+		A_mat.at<double>((row * 2) + 1, 6) = (double)(-xF.y * x.y);
+		A_mat.at<double>((row * 2) + 1, 7) = (double)(-xF.y);
+
+		B_mat.at<double>(row * 2, 0) = (double)-x.x;
+		B_mat.at<double>((row * 2) + 1, 0) = 0.0f;
+	}
+
+	cv::Mat matResult = cv::Mat(8, 1, CV_64FC1);
+
+	cv::solve(A_mat, B_mat, matResult);
+
+	cv::Mat transformationMatrix = cv::Mat(3, 3, CV_64FC1);
+	transformationMatrix.at<double>(0, 0) = 1.0f;
+
+	unsigned int index = 0;
+	for (unsigned int row = 0; row < transformationMatrix.rows; row++)
+	{
+		for (unsigned int col = 0; col < transformationMatrix.cols; col++)
+		{
+			if (!(row == 0 && col == 0))
+				transformationMatrix.at<double>(row, col) = matResult.at<double>(index++, 0);
+		}
+	}
+
+	cv::Mat coord = cv::Mat(3, 1, CV_64FC1);
+	cv::Mat homog = cv::Mat(3, 1, CV_64FC1);
+	coord.at<double>(2, 0) = 1.0f;
+
+	uint transformedX, transformedY;
+	double homogX, homogY, homogW;
+	for (unsigned int row = 0; row < overlay.rows; row++)
+	{
+		coord.at<double>(1, 0) = (double)row;
+		for (unsigned int col = 0; col < overlay.cols; col++)
+		{
+			coord.at<double>(0, 0) = (double)col;
+
+			homog = transformationMatrix * coord;
+			homogX = homog.at<double>(0, 0);
+			homogY = homog.at<double>(1, 0);
+			homogW = homog.at<double>(2, 0);
+
+			transformedX = (uint)(homogX / homogW);
+			transformedY = (uint)(homogY / homogW);
+
+			cv::Vec3b overlayPixel = overlay.at<cv::Vec3b>(row, col);
+			if (transformedX < result.rows && transformedY < result.cols)
+				result.at<cv::Vec3b>(transformedY, transformedX) = overlayPixel;
+		}
+	}
+
+	return result;
 }
