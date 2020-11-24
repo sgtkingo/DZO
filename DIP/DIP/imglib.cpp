@@ -79,12 +79,49 @@ void SetConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix, int x, int y, int
 void DoConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix){
 	const int matrixSize = convultionMatrix.rows * convultionMatrix.cols;
 	printf("Prepare for Convultion...\n");
-	for (int y = 0; y < pic8uc1.rows; y++) {
-		for (int x = 0; x < pic8uc1.cols; x++) {
+	for (int x = 0; x < pic8uc1.rows; x++) {
+		for (int y = 0; y < pic8uc1.cols; y++) {
 			SetConvolution(pic8uc1, convultionMatrix, x, y, matrixSize);
 		}
 	}
 	printf("Convultion complete..\n");
+}
+
+float GetConvolution_F(const cv::Mat pic32uc1, cv::Mat convultionMatrix, int x, int y, int devider) {
+	float resultValue = 0;
+
+	float pixelValue = 0;
+	float convValue = 0;
+	for (int i = 0; i < (convultionMatrix.rows); i++)
+	{
+		for (int j = 0; j < (convultionMatrix.cols); j++)
+		{
+			if ((x - i) >= 0 && (y - j) >= 0) {
+				pixelValue = pic32uc1.at<float>(x - i, y - j);
+				convValue = convultionMatrix.at<float>(i, j);
+				resultValue += (pixelValue * convValue);
+			}
+		}
+	}
+	resultValue /= devider;
+	return resultValue;
+}
+
+cv::Mat DoConvolution_F(const cv::Mat pic32uc1, cv::Mat convultionMatrix) {
+	cv::Mat result;
+	result = cv::Mat(pic32uc1.rows, pic32uc1.cols, pic32uc1.type());
+
+	const int matrixSize = convultionMatrix.rows * convultionMatrix.cols;
+	float convValue = 0;
+	printf("Prepare for Convultion...\n");
+	for (int x = 0; x < result.rows; x++) {
+		for (int y = 0; y < result.cols; y++) {
+			convValue = GetConvolution_F(pic32uc1, convultionMatrix, x, y, matrixSize);
+			result.at<float>(x, y) = convValue;
+		}
+	}
+	printf("Convultion complete..\n");
+	return result;
 }
 
 
@@ -665,7 +702,7 @@ cv::Mat Histogram(const cv::Mat src)
 	printf("Histogram Eq Done!\n");
 	return outImg;
 }
-
+/*
 void FillTransformationMatrix(cv::Mat & A_mat, cv::Mat & B_mat, const std::vector<cv::Point2i> inPoints, const std::vector<cv::Point2i> outPoints) {
 	printf("Filling transform matrix...\n");
 	cv::Point2i xI, xO;
@@ -787,16 +824,7 @@ cv::Mat PerspectiveTransformation(const cv::Mat & input, const cv::Mat & overlay
 
 	return result;
 }
-
-cv::Mat TransformImage(const cv::Mat img, const std::vector<cv::Point2f> originPonits, const std::vector<cv::Point2f> transformPoints) {
-	printf("Transform Image starting...\n");
-	cv::Mat perspectiveMat_ = cv::findHomography(originPonits, transformPoints, CV_RANSAC);
-	//use perspective transform to translate other points to real word coordinates
-	cv::Mat result = cv::Mat(img.rows, img.cols, img.type());
-
-	cv::perspectiveTransform(img, result, perspectiveMat_);
-	return result;
-}
+*/
 
 cv::Mat perspective_transformation(const cv::Mat & input, const cv::Mat & overlay, const std::vector<std::pair<cv::Point2i, cv::Point2i>>& points)
 {
@@ -884,4 +912,45 @@ cv::Mat perspective_transformation(const cv::Mat & input, const cv::Mat & overla
 	}
 
 	return result;
+}
+
+void apply_sobel_operator(cv::Mat & input_bw_32F)
+{
+	printf("Appling Sobel operator...\n");
+	float xMaskData[9] = { 1.0f,0.0f,-1.0f,2.0f,0.0f,-2.0f,1.0f,0.0f,-1.0f };
+	float yMaskData[9] = { 1.0f,2.0f,1.0f,0.0f,0.0f,0.0f,-1.0f,-2.0f,-1.0f };
+	cv::Mat xMask = cv::Mat(3, 3, CV_32FC1, xMaskData);
+	cv::Mat yMask = cv::Mat(3, 3, CV_32FC1, yMaskData);
+
+	cv::Mat Gx = DoConvolution_F(input_bw_32F, xMask);
+	cv::Mat Gy = DoConvolution_F(input_bw_32F, yMask);;
+
+	const int N = input_bw_32F.rows;
+	const int M = input_bw_32F.cols;
+
+	float G_value, Gx_value, Gy_value;
+	for (size_t r = 0; r < N; r++)
+	{
+		for (size_t c = 0; c < M; c++)
+		{
+			Gx_value = Gx.at<float>(r, c);
+			Gy_value = Gy.at<float>(r, c);
+			G_value = sqrt((Gx_value*Gx_value)+ (Gy_value*Gy_value));
+			input_bw_32F.at<float>(r, c) = G_value;
+		}
+	}
+	printf("Appling Sobel operator DONE!\n");
+}
+
+cv::Mat EdgeDetection_Sobel(const cv::Mat & input) {
+	printf("Edge Detection starting...\n");
+	cv::Mat img_bw_32F; input.copyTo(img_bw_32F);
+
+	if (img_bw_32F.type() != CV_32FC1) {
+		printf("Bad input format! Converting...\n");
+		img_bw_32F.convertTo(img_bw_32F, CV_32FC1, 1.0 / 255);
+	}
+	apply_sobel_operator(img_bw_32F);
+
+	return img_bw_32F;
 }

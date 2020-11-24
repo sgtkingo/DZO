@@ -28,6 +28,9 @@ cv::Mat CreateConvolutionMatrix(uint mSize = 3, bool BoxOrGaussian = true);
 void SetConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix, int x, int y, int devider);
 void DoConvolution(cv::Mat pic8uc1, cv::Mat convultionMatrix);
 
+float GetConvolution_F(const cv::Mat pic32uc1, cv::Mat convultionMatrix, int x, int y, int devider);
+cv::Mat DoConvolution_F(const cv::Mat pic32uc1, cv::Mat convultionMatrix);
+
 uchar SetGamaToPixel(uchar pixel, double gama, uchar brightness);
 void ImgGamaEdit(cv::Mat pic8Uc3, double gama, uchar bright);
 
@@ -79,6 +82,8 @@ std::vector<uchar> equalized_brightness(const std::vector<uint> histogram, const
 cv::Mat Histogram(const cv::Mat src);
 
 //Perspective
-cv::Mat PerspectiveTransformation(const cv::Mat & input, const cv::Mat & overlay, const std::vector<cv::Point2i> bgPoints, const std::vector<cv::Point2i> overlayPoints);
-cv::Mat TransformImage(const cv::Mat img, const std::vector<cv::Point2f> originPonits, const std::vector<cv::Point2f> transformPoints);
 cv::Mat perspective_transformation(const cv::Mat & input, const cv::Mat & overlay, const std::vector<std::pair<cv::Point2i, cv::Point2i>>& points);
+
+//Edge Detection
+void apply_sobel_operator(cv::Mat & input_bw_32F);
+cv::Mat EdgeDetection_Sobel(const cv::Mat & input);
