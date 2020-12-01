@@ -87,3 +87,8 @@ cv::Mat perspective_transformation(const cv::Mat & input, const cv::Mat & overla
 //Edge Detection
 void apply_sobel_operator(cv::Mat & input_bw_32F);
 cv::Mat EdgeDetection_Sobel(const cv::Mat & input);
+
+//Edge Thining
+void apply_non_maxima_operator(cv::Mat & input_bw_32F);
+cv::Mat EdgeThining(const cv::Mat & input);
+void EdgeThining_DoubleTreashold(cv::Mat &input);

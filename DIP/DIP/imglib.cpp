@@ -954,3 +954,137 @@ cv::Mat EdgeDetection_Sobel(const cv::Mat & input) {
 
 	return img_bw_32F;
 }
+
+void apply_non_maxima_operator(cv::Mat & input_bw_32F) {
+	float fx = 0;
+	float fy = 0;
+
+	float alpha = 0, alpha_deg = 0, a = 0, EpO = 0, EnO = 0, E = 0;
+
+	for (size_t r = 1; r < input_bw_32F.rows -1; r++)
+	{
+		for (size_t c = 1; c < input_bw_32F.cols -1; c++)
+		{
+			fx = (input_bw_32F.at<float>(r - 1,c) - input_bw_32F.at<float>(r + 1, c)) / 2;
+			fy = (input_bw_32F.at<float>(r, c - 1) - input_bw_32F.at<float>(r, c + 1)) / 2;
+			E = input_bw_32F.at<float>(r, c);
+
+			alpha = atan2(fy, fx);
+			alpha_deg = (CV_PI/180)*alpha;
+			a = tan(alpha) * input_bw_32F.at<float>(r + 1, c);
+
+			EpO = a*(input_bw_32F.at<float>(r + 1, c + 1) + ((1 - a)*input_bw_32F.at<float>(r + 1, c)));
+			EnO = a*(input_bw_32F.at<float>(r - 1, c - 1) + ((1 - a)*input_bw_32F.at<float>(r - 1, c)));
+
+			if (alpha_deg >= 0.0f && alpha_deg <= 90.0f)
+			{
+				EpO = (a * input_bw_32F.at<float>(r + 1, c + 1)) + ((1 - a) * input_bw_32F.at<float>(r, c + 1));
+				EnO = (a * input_bw_32F.at<float>(r - 1, c - 1)) + ((1 - a) * input_bw_32F.at<float>(r, c - 1));
+			}
+			else if (alpha_deg >= 90.0f && alpha_deg <= 180.0f)
+			{
+				EpO = (a * input_bw_32F.at<float>(r + 1, c - 1)) + ((1 - a) * input_bw_32F.at<float>(r, c - 1));
+				EnO = (a * input_bw_32F.at<float>(r + 1, c + 1)) + ((1 - a) * input_bw_32F.at<float>(r, c + 1));
+			}
+			else if (alpha_deg >= 180.0f && alpha_deg <= 270.0f)
+			{
+				EpO = (a * input_bw_32F.at<float>(r - 1, c - 1)) + ((1 - a) * input_bw_32F.at<float>(r, c - 1));
+				EnO = (a * input_bw_32F.at<float>(r + 1, c + 1)) + ((1 - a) * input_bw_32F.at<float>(r, c + 1));
+			}
+			else if (alpha_deg >= 270.0f && alpha_deg <= 360.0f)
+			{
+				EpO = (a * input_bw_32F.at<float>(r + 1, c + 1)) + ((1 - a) * input_bw_32F.at<float>(r, c + 1));
+				EnO = (a * input_bw_32F.at<float>(r + 1, c - 1)) + ((1 - a) * input_bw_32F.at<float>(r, c - 1));
+			}
+			else
+			{
+				continue;
+			}
+			if (!(E > EpO && E > EnO))
+				input_bw_32F.at<float>(r, c) = 0.0;
+		}
+	}
+
+}
+
+cv::Mat EdgeThining(const cv::Mat & input){
+	printf("Edge Thining starting...\n");
+	cv::Mat img_bw_32F; input.copyTo(img_bw_32F);
+
+	if (img_bw_32F.type() != CV_32FC1) {
+		printf("Bad input format! Converting...\n");
+		img_bw_32F.convertTo(img_bw_32F, CV_32FC1, 1.0 / 255);
+	}
+	apply_non_maxima_operator(img_bw_32F);
+	printf("Edge Thining done!\n");
+	return img_bw_32F;
+}
+
+bool is_edge(const cv::Mat &src, const uint row, const uint col, const double t1, const double t2)
+{
+	float pixel_val = src.at<float>(row, col);
+	if (pixel_val >= t2)
+	{
+		return true;
+	}
+	else if (pixel_val >= t1 && pixel_val <= t2)
+	{
+		return (src.at<float>(row - 1, col) > t2) || (src.at<float>(row + 1, col) > t2) || (src.at<float>(row, col - 1) > t2) || (src.at<float>(row, col + 1) > t2);
+		//return is_edge(src, row - 1, col, t1, t2) || is_edge(src, row + 1, col, t1, t2) || is_edge(src, row, col - 1, t1, t2) || is_edge(src, row, col + 1, t1, t2);
+	}
+	else
+	{
+		return false;
+	}
+}
+
+cv::Mat double_threshold(const cv::Mat &src, const int t1, const int t2, const int t_max)
+{
+	cv::Mat dst = cv::Mat(src.rows, src.cols, src.type());
+	uint border = 1;
+	for (unsigned int row = border; row < src.rows - border; row++)
+	{
+		for (unsigned int col = border; col < src.cols - border; col++)
+		{
+			dst.at<float>(row, col) = is_edge(src, row, col, (double)t1/t_max, (double)t2/t_max) ? 1.0 : 0.0;
+		}
+	}
+	return dst;
+}
+
+struct DT_UserData {
+	cv::Mat & src_32uc1_img;
+	cv::Mat & result_32uc1_img;
+	int TR1;
+	int TR2;
+	int TR_MAX;
+	DT_UserData(const int TR1, const int TR2, const int TR_MAX, cv::Mat & src_32uc1_img, cv::Mat & result_32uc1_img) : TR1(TR1), TR2(TR2), TR_MAX(TR_MAX), src_32uc1_img(src_32uc1_img), result_32uc1_img(result_32uc1_img) {}
+};
+
+void apply_double_treashold(int id, void * user_data)
+{
+	DT_UserData *dt_user_data = (DT_UserData*)user_data;
+
+	dt_user_data->result_32uc1_img = double_threshold(dt_user_data->src_32uc1_img, dt_user_data->TR1, dt_user_data->TR2, dt_user_data->TR_MAX);
+	cv::imshow("Double_Treashold", dt_user_data->result_32uc1_img);
+}
+
+void EdgeThining_DoubleTreashold(cv::Mat &input)
+{
+	printf("Prepairing Double Treashold Playground...!\n");
+	cv::Mat src_img_sobel = EdgeDetection_Sobel(input);
+	//ImageShow(src_img_sobel, "Valve SOBEL");
+	cv::Mat src_img_thin_edge = EdgeThining(src_img_sobel);
+	//ImageShow(src_img_thin_edge, "Valve EDGE THINING");
+
+	cv::Mat result;
+	const int tr_max = 25;
+	DT_UserData dt_user_data(10, 12, tr_max, src_img_thin_edge, result);
+
+	cv::namedWindow("Double_Treashold");
+
+	cv::createTrackbar("TR1", "Double_Treashold", &dt_user_data.TR1, dt_user_data.TR_MAX, apply_double_treashold, &dt_user_data);
+	cv::createTrackbar("TR2", "Double_Treashold", &dt_user_data.TR2, dt_user_data.TR_MAX, apply_double_treashold, &dt_user_data);
+	printf("Double Treashold Playground READY!\n");
+	cv::waitKey(0);
+}
